@@ -1,36 +1,3 @@
-# venv
-
-在项目根目录创建了虚拟环境：python -m venv venv
-激活了虚拟环境：.\venv\Scripts\Activate.ps1
-创建了requirements.txt文件，包含所有必要的依赖：
-pandas
-numpy
-scikit-learn
-安装了所有依赖：pip install -r requirements.txt
-更新了pip到最新版本
-如何使用这个虚拟环境
-每次开始工作前，您需要先激活虚拟环境：
-
-CopyInsert
-.\venv\Scripts\Activate.ps1
-激活后，命令提示符前会出现(venv)前缀，表示您正在使用虚拟环境。
-
-如果您需要添加更多依赖，可以直接使用pip安装：
-
-CopyInsert
-pip install 包名
-并且可以更新requirements.txt：
-
-CopyInsert
-pip freeze > requirements.txt
-现在您可以在这个虚拟环境中运行您的模型训练和预测脚本了：
-
-CopyInsert
-python ModelCreate/save_model_RandomForest.py
-python ModelCreate/use_model.py
-这样所有的依赖问题都已解决，您的项目现在有了一个独立、干净的运行环境。
-
-
 # usage
 run the application, you'll need to:
 
