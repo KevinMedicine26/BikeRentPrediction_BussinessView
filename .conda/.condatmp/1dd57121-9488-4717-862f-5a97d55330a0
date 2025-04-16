@@ -1,0 +1,13 @@
+prefix=d:/BikeProj/BikeRentPrediction/.conda/Library
+exec_prefix=d:/BikeProj/BikeRentPrediction/.conda/Library
+libdir=d:/BikeProj/BikeRentPrediction/.conda/Library/lib
+sharedlibdir=d:/BikeProj/BikeRentPrediction/.conda/Library/lib
+includedir=d:/BikeProj/BikeRentPrediction/.conda/Library/include
+
+Name: zlib
+Description: zlib compression library
+Version: 1.2.13
+
+Requires:
+Libs: -L${libdir} -L${sharedlibdir} -lz
+Cflags: -I${includedir}
