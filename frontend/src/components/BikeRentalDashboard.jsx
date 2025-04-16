@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { getPrediction, getHistoricalData } from '../services/api';
+import React, { useState } from 'react';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, AreaChart, Area } from 'recharts';
+import { getPrediction } from '../services/api';
+// 新增 Material-UI 组件
+import { Box, Grid, Card, CardContent, Typography, Button, Switch, Select, MenuItem, FormControl, InputLabel, TextField, CircularProgress, Slider, Tabs, Tab, Paper } from '@mui/material';
+import { styled } from '@mui/material/styles';
 
 // Mock data with English labels
 const usageData = [
@@ -10,6 +13,12 @@ const usageData = [
   { month: 'Apr', rentals: 7000, repairs: 350 },
   { month: 'May', rentals: 9000, repairs: 410 },
   { month: 'Jun', rentals: 8000, repairs: 390 },
+  { month: 'Jul', rentals: 9500, repairs: 430 },
+  { month: 'Aug', rentals: 9200, repairs: 420 },
+  { month: 'Sep', rentals: 7500, repairs: 380 },
+  { month: 'Oct', rentals: 6000, repairs: 320 },
+  { month: 'Nov', rentals: 4500, repairs: 270 },
+  { month: 'Dec', rentals: 3500, repairs: 230 },
 ];
 
 const stationData = [
@@ -22,34 +31,34 @@ const stationData = [
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
+// 自定义卡片样式
+const StyledCard = styled(Card)(({ theme }) => ({
+  borderRadius: 16,
+  boxShadow: '0 2px 16px rgba(0,0,0,0.07)',
+  marginBottom: theme.spacing(2),
+}));
+
 const BikeRentalDashboard = () => {
   const [bikeCount, setBikeCount] = useState(500);
   const [usageIntensity, setUsageIntensity] = useState(70);
   const [weatherFactor, setWeatherFactor] = useState(50);
-  
-  // Weather prediction related states
   const [temperature, setTemperature] = useState(25);
   const [humidity, setHumidity] = useState(60);
   const [precipitation, setPrecipitation] = useState(0);
   const [windSpeed, setWindSpeed] = useState(10);
   const [isHoliday, setIsHoliday] = useState(false);
   const [dayOfWeek, setDayOfWeek] = useState(1);
-  const [season, setSeason] = useState(2); // Default to summer (1: spring, 2: summer, 3: fall, 4: winter)
+  const [season, setSeason] = useState(2);
   const [hour, setHour] = useState(new Date().getHours());
   const [workingday, setWorkingday] = useState(new Date().getDay() === 0 || new Date().getDay() === 6 ? 0 : 1);
-  const [weather, setWeather] = useState(1); // Default to Clear weather (1: Clear, 2: Cloudy, 3: Light Rain, 4: Heavy Rain)
-  
-  // Prediction results
+  const [weather, setWeather] = useState(1);
   const [predictedRentals, setPredictedRentals] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [predictionError, setPredictionError] = useState(null);
-  
-  // Prediction data for future days (will be updated after prediction)
   const [futurePredictions, setFuturePredictions] = useState([]);
-  
-  // Calculate maintenance workload
+  const [activeTab, setActiveTab] = useState(0);
+
   const calculateMaintenanceLoad = () => {
-    // Simple formula: bike count * usage intensity * weather factor / 10000
     const baseLoad = (bikeCount * usageIntensity * weatherFactor) / 10000;
     return {
       dailyInspections: Math.round(baseLoad * 20),
@@ -58,516 +67,656 @@ const BikeRentalDashboard = () => {
       staffNeeded: Math.ceil(baseLoad * 3)
     };
   };
-  
-  // Call model API
+
   const predictRentals = async () => {
     setIsLoading(true);
     setPredictionError(null);
-    
     try {
-      // Calculate working day based on day of week (0,6 are weekend)
       const isWorkingDay = (dayOfWeek !== 0 && dayOfWeek !== 6) ? 1 : 0;
-      
-      // Prepare parameters exactly as expected by the API
       const apiParams = {
         season: parseInt(season),
-        month: parseInt(new Date().getMonth() + 1), // Current month (1-12)
+        month: parseInt(new Date().getMonth() + 1),
         hour: parseInt(hour),
         holiday: isHoliday ? 1 : 0,
         weekday: parseInt(dayOfWeek),
         workingday: isWorkingDay,
         weather: parseInt(weather),
         temp: parseFloat(temperature),
+        atemp: parseFloat(temperature) * 0.9, // Calculate apparent temperature based on actual temp
         humidity: parseFloat(humidity),
         windspeed: parseFloat(windSpeed),
-        // Add year parameter which is expected by the API
         year: 1
       };
-      
-      console.log('Sending API request with params:', apiParams);
-      
-      // Make the API call
+      console.log("Sending prediction params:", apiParams);
       const response = await getPrediction(apiParams);
-      console.log('API response:', response);
-      
-      // Handle the API response
+      console.log("Prediction response:", response);
       if (response && typeof response.prediction === 'number') {
         setPredictedRentals(response.prediction);
-        
-        // Generate future 7 days predictions data based on the current prediction
         const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const predictions = [];
-        
         for (let i = 0; i < 7; i++) {
-          const futureDay = (dayOfWeek + i) % 7;
-          const dayName = weekdays[futureDay];
-          const isWeekend = futureDay === 0 || futureDay === 6;
-          const tempVariation = Math.random() * 5 - 2.5; // -2.5 to 2.5 random variation
-          const rainChance = Math.random() > 0.7;
-          const rainAmount = rainChance ? Math.random() * 20 : 0;
-          
-          const dailyBasePrediction = response.prediction * 0.9; // Base from the actual prediction
-          const dailyTempFactor = (temperature + tempVariation) > 20 ? 
-                                ((temperature + tempVariation) - 20) * 0.05 : 
-                                ((temperature + tempVariation) - 20) * 0.03;
-          const dailyRainFactor = rainAmount > 0 ? -rainAmount * 0.1 : 0;
-          const dailyWeekendBonus = isWeekend ? 0.2 : 0;
-          
-          const variation = 1 + dailyTempFactor + dailyRainFactor + dailyWeekendBonus;
-          const dailyPrediction = Math.max(0, Math.round(dailyBasePrediction * variation));
-          
           predictions.push({
-            day: dayName,
-            date: `4/${3 + i}`,
-            prediction: dailyPrediction,
-            temperature: Math.round(temperature + tempVariation),
-            precipitation: Math.round(rainAmount),
+            day: weekdays[(dayOfWeek + i) % 7],
+            prediction: Math.round(response.prediction * (1 + 0.05 * Math.sin(i)))
           });
         }
-        
         setFuturePredictions(predictions);
       } else {
-        throw new Error('Invalid API response format');
+        setPredictionError('Invalid API response');
       }
-    } catch (error) {
-      console.error('Prediction failed:', error);
-      setPredictionError('Failed to get prediction data, please try again later. Error: ' + (error.message || JSON.stringify(error)));
-    } finally {
-      setIsLoading(false);
+    } catch (err) {
+      console.error("Prediction error:", err);
+      setPredictionError('Prediction failed: ' + (err.message || 'Unknown error'));
     }
+    setIsLoading(false);
   };
-  
-  const maintenanceLoad = calculateMaintenanceLoad();
-  
-  // Calculate maintenance workload based on predicted rentals
-  const calculatePredictedMaintenance = () => {
-    if (predictedRentals === null) return null;
-    
-    const maintenanceFactor = predictedRentals / 1000;
-    return {
-      dailyInspections: Math.round(maintenanceFactor * 15),
-      repairs: Math.round(maintenanceFactor * 3)
-    };
-  };
-  
-  const predictedMaintenance = calculatePredictedMaintenance();
-  
-  // Chart container style for consistent sizing
-  const chartContainerStyle = {
-    width: '100%',
-    height: 300,
-    marginTop: 15,
-    marginBottom: 15
-  };
-  
+
+  const maintenance = calculateMaintenanceLoad();
+
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
-      <header className="bg-blue-600 text-white p-4 md:p-6">
-        <div className="container mx-auto">
-          <h1 className="text-2xl md:text-3xl font-bold">Bike Rental Prediction System - Maintenance Dashboard</h1>
-        </div>
-      </header>
+    <Box 
+      sx={{ 
+        bgcolor: '#f5f6fa', 
+        minHeight: '100vh',
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'auto'
+      }}
+    >
+      <Typography variant="h4" fontWeight={700} gutterBottom align="center" sx={{ py: 2 }}>
+        🚲 Bike Rental Dashboard
+      </Typography>
       
-      <div className="flex-1 container mx-auto px-4 py-6 md:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="text-lg font-semibold text-gray-700">Total Bikes</h3>
-            <p className="text-3xl font-bold">{bikeCount}</p>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="text-lg font-semibold text-gray-700">Daily Rentals</h3>
-            <p className="text-3xl font-bold">2,543</p>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="text-lg font-semibold text-gray-700">Bikes in Repair</h3>
-            <p className="text-3xl font-bold">23</p>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="text-lg font-semibold text-gray-700">Maintenance Staff</h3>
-            <p className="text-3xl font-bold">{maintenanceLoad.staffNeeded}</p>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-white p-4 md:p-6 rounded-lg shadow">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">Monthly Rentals & Repairs</h3>
-            <div style={chartContainerStyle}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={usageData}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+      <Box sx={{ flex: 1, overflow: 'auto', display: 'flex', px: { xs: 1, md: 3 } }}>
+        <Grid container spacing={2} sx={{ height: '100%' }}>
+          {/* Parameters section - scrollable sidebar */}
+          <Grid item xs={12} md={3} sx={{ height: '100%' }}>
+            <Box sx={{ overflowY: 'auto', height: '100%', pr: 1 }}>
+              <StyledCard sx={{ mb: 2 }}>
+                <CardContent>
+                  <Typography variant="h6" fontWeight={600} gutterBottom>
+                    Parameters
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <TextField label="Bike Count" type="number" value={bikeCount} onChange={e => setBikeCount(Number(e.target.value))} size="small" />
+                    <Slider
+                      value={bikeCount}
+                      onChange={(e, newValue) => setBikeCount(newValue)}
+                      min={100}
+                      max={1000}
+                      step={10}
+                      valueLabelDisplay="auto"
+                      aria-labelledby="bike-count-slider"
+                    />
+                    
+                    <TextField label="Usage Intensity" type="number" value={usageIntensity} onChange={e => setUsageIntensity(Number(e.target.value))} size="small" />
+                    <Slider
+                      value={usageIntensity}
+                      onChange={(e, newValue) => setUsageIntensity(newValue)}
+                      min={0}
+                      max={100}
+                      valueLabelDisplay="auto"
+                      aria-labelledby="usage-intensity-slider"
+                    />
+                    
+                    <TextField label="Weather Factor" type="number" value={weatherFactor} onChange={e => setWeatherFactor(Number(e.target.value))} size="small" />
+                    <Slider
+                      value={weatherFactor}
+                      onChange={(e, newValue) => setWeatherFactor(newValue)}
+                      min={0}
+                      max={100}
+                      valueLabelDisplay="auto"
+                      aria-labelledby="weather-factor-slider"
+                    />
+                    
+                    <TextField label="Temperature (°C)" type="number" value={temperature} onChange={e => setTemperature(Number(e.target.value))} size="small" />
+                    <Slider
+                      value={temperature}
+                      onChange={(e, newValue) => setTemperature(newValue)}
+                      min={-10}
+                      max={40}
+                      valueLabelDisplay="auto"
+                      aria-labelledby="temperature-slider"
+                    />
+                    
+                    <TextField label="Humidity (%)" type="number" value={humidity} onChange={e => setHumidity(Number(e.target.value))} size="small" />
+                    <Slider
+                      value={humidity}
+                      onChange={(e, newValue) => setHumidity(newValue)}
+                      min={0}
+                      max={100}
+                      valueLabelDisplay="auto"
+                      aria-labelledby="humidity-slider"
+                    />
+                    
+                    <TextField label="Precipitation (mm)" type="number" value={precipitation} onChange={e => setPrecipitation(Number(e.target.value))} size="small" />
+                    <Slider
+                      value={precipitation}
+                      onChange={(e, newValue) => setPrecipitation(newValue)}
+                      min={0}
+                      max={50}
+                      valueLabelDisplay="auto"
+                      aria-labelledby="precipitation-slider"
+                    />
+                    
+                    <TextField label="Wind Speed (km/h)" type="number" value={windSpeed} onChange={e => setWindSpeed(Number(e.target.value))} size="small" />
+                    <Slider
+                      value={windSpeed}
+                      onChange={(e, newValue) => setWindSpeed(newValue)}
+                      min={0}
+                      max={50}
+                      valueLabelDisplay="auto"
+                      aria-labelledby="wind-speed-slider"
+                    />
+                    
+                    <FormControl size="small">
+                      <InputLabel>Day of Week</InputLabel>
+                      <Select value={dayOfWeek} label="Day of Week" onChange={e => setDayOfWeek(Number(e.target.value))}>
+                        <MenuItem value={0}>Sunday</MenuItem>
+                        <MenuItem value={1}>Monday</MenuItem>
+                        <MenuItem value={2}>Tuesday</MenuItem>
+                        <MenuItem value={3}>Wednesday</MenuItem>
+                        <MenuItem value={4}>Thursday</MenuItem>
+                        <MenuItem value={5}>Friday</MenuItem>
+                        <MenuItem value={6}>Saturday</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <FormControl size="small">
+                      <InputLabel>Season</InputLabel>
+                      <Select value={season} label="Season" onChange={e => setSeason(Number(e.target.value))}>
+                        <MenuItem value={1}>Spring</MenuItem>
+                        <MenuItem value={2}>Summer</MenuItem>
+                        <MenuItem value={3}>Fall</MenuItem>
+                        <MenuItem value={4}>Winter</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <FormControl size="small">
+                      <InputLabel>Hour</InputLabel>
+                      <Select value={hour} label="Hour" onChange={e => setHour(Number(e.target.value))}>
+                        {[...Array(24)].map((_, i) => (
+                          <MenuItem key={i} value={i}>{i}:00</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <FormControl size="small">
+                      <InputLabel>Weather</InputLabel>
+                      <Select value={weather} label="Weather" onChange={e => setWeather(Number(e.target.value))}>
+                        <MenuItem value={1}>Clear</MenuItem>
+                        <MenuItem value={2}>Cloudy</MenuItem>
+                        <MenuItem value={3}>Light Rain</MenuItem>
+                        <MenuItem value={4}>Heavy Rain</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography>Holiday</Typography>
+                      <Switch checked={isHoliday} onChange={e => setIsHoliday(e.target.checked)} />
+                    </Box>
+                    <Button variant="contained" color="primary" onClick={predictRentals} disabled={isLoading} sx={{ mt: 1 }}>
+                      {isLoading ? <CircularProgress size={24} /> : 'Predict Rentals'}
+                    </Button>
+                    {predictionError && <Typography color="error">{predictionError}</Typography>}
+                  </Box>
+                </CardContent>
+              </StyledCard>
+            </Box>
+          </Grid>
+          
+          {/* Main content area - scrollable charts and data */}
+          <Grid item xs={12} md={9} sx={{ height: '100%', overflow: 'auto' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              {/* Tab Navigation */}
+              <Paper sx={{ mb: 2 }}>
+                <Tabs 
+                  value={activeTab} 
+                  onChange={(e, newValue) => setActiveTab(newValue)}
+                  variant="fullWidth"
+                  indicatorColor="primary"
+                  textColor="primary"
+                  sx={{ borderBottom: 1, borderColor: 'divider' }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis yAxisId="left" orientation="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip />
-                  <Legend wrapperStyle={{ marginTop: "10px" }} />
-                  <Bar yAxisId="left" dataKey="rentals" name="Rentals" fill="#8884d8" />
-                  <Bar yAxisId="right" dataKey="repairs" name="Repairs" fill="#82ca9d" />
-                </BarChart>
-              </ResponsiveContainer>
-              {usageData.length === 0 && <p>No data available.</p>}
-            </div>
-          </div>
-          
-          <div className="bg-white p-4 md:p-6 rounded-lg shadow">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">Popular Stations</h3>
-            <div style={chartContainerStyle}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={stationData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={true}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {stationData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-              {stationData.length === 0 && <p>No data available.</p>}
-            </div>
-          </div>
-        </div>
-        
-        {/* Weather-rental prediction module */}
-        <div className="bg-white p-4 md:p-6 rounded-lg shadow mb-6">
-          <h3 className="text-xl font-semibold text-gray-700 mb-4">Weather-Based Rental Prediction Model</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:gap-6 mb-6">
-            <div className="form-group">
-              <label className="block text-gray-700 mb-2">Temperature (°C)</label>
-              <input
-                type="range"
-                min="-10"
-                max="40"
-                value={temperature}
-                onChange={(e) => setTemperature(parseInt(e.target.value))}
-                className="w-full"
-              />
-              <div className="flex justify-between">
-                <span>-10°C</span>
-                <span className="font-semibold">{temperature}°C</span>
-                <span>40°C</span>
-              </div>
-            </div>
-            
-            <div className="form-group">
-              <label className="block text-gray-700 mb-2">Humidity (%)</label>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={humidity}
-                onChange={(e) => setHumidity(parseInt(e.target.value))}
-                className="w-full"
-              />
-              <div className="flex justify-between">
-                <span>0%</span>
-                <span className="font-semibold">{humidity}%</span>
-                <span>100%</span>
-              </div>
-            </div>
-            
-            <div className="form-group">
-              <label className="block text-gray-700 mb-2">Precipitation (mm)</label>
-              <input
-                type="range"
-                min="0"
-                max="50"
-                value={precipitation}
-                onChange={(e) => setPrecipitation(parseInt(e.target.value))}
-                className="w-full"
-              />
-              <div className="flex justify-between">
-                <span>0mm</span>
-                <span className="font-semibold">{precipitation}mm</span>
-                <span>50mm</span>
-              </div>
-            </div>
-          
-            <div className="form-group">
-              <label className="block text-gray-700 mb-2">Wind Speed (m/s)</label>
-              <input
-                type="range"
-                min="0"
-                max="30"
-                value={windSpeed}
-                onChange={(e) => setWindSpeed(parseInt(e.target.value))}
-                className="w-full"
-              />
-              <div className="flex justify-between">
-                <span>0 m/s</span>
-                <span className="font-semibold">{windSpeed} m/s</span>
-                <span>30 m/s</span>
-              </div>
-            </div>
-            
-            <div className="form-group">
-              <label className="block text-gray-700 mb-2">Day of Week</label>
-              <select 
-                className="w-full p-2 border rounded" 
-                value={dayOfWeek}
-                onChange={(e) => setDayOfWeek(parseInt(e.target.value))}
-              >
-                <option value={0}>Sunday</option>
-                <option value={1}>Monday</option>
-                <option value={2}>Tuesday</option>
-                <option value={3}>Wednesday</option>
-                <option value={4}>Thursday</option>
-                <option value={5}>Friday</option>
-                <option value={6}>Saturday</option>
-              </select>
-            </div>
-            
-            <div className="form-group">
-              <label className="block text-gray-700 mb-2">Holiday</label>
-              <div className="flex items-center mt-4">
-                <input
-                  type="checkbox"
-                  checked={isHoliday}
-                  onChange={(e) => setIsHoliday(e.target.checked)}
-                  className="h-5 w-5"
-                />
-                <span className="ml-2 text-gray-700">Is a holiday</span>
-              </div>
-            </div>
-          
-            <div className="form-group">
-              <label className="block text-gray-700 mb-2">Season</label>
-              <select 
-                className="w-full p-2 border rounded" 
-                value={season}
-                onChange={(e) => setSeason(parseInt(e.target.value))}
-              >
-                <option value={1}>Spring</option>
-                <option value={2}>Summer</option>
-                <option value={3}>Fall</option>
-                <option value={4}>Winter</option>
-              </select>
-            </div>
-            
-            <div className="form-group">
-              <label className="block text-gray-700 mb-2">Hour (0-23)</label>
-              <input
-                type="number"
-                min="0"
-                max="23"
-                value={hour}
-                onChange={(e) => setHour(parseInt(e.target.value))}
-                className="w-full p-2 border rounded"
-              />
-            </div>
-            
-            <div className="form-group">
-              <label className="block text-gray-700 mb-2">Weather Condition</label>
-              <select 
-                className="w-full p-2 border rounded" 
-                value={weather}
-                onChange={(e) => setWeather(parseInt(e.target.value))}
-              >
-                <option value={1}>Clear</option>
-                <option value={2}>Cloudy</option>
-                <option value={3}>Light Rain</option>
-                <option value={4}>Heavy Rain</option>
-              </select>
-            </div>
-          </div>
-          
-          <div className="flex justify-center mt-6 mb-6">
-            <button 
-              className="px-6 py-3 bg-blue-600 text-white text-lg rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-              onClick={predictRentals}
-              disabled={isLoading}
-            >
-              {isLoading ? 'Predicting...' : 'Predict Rental Volume'}
-            </button>
-          </div>
-          
-          {predictedRentals !== null && !predictionError && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-blue-50 p-6 rounded-lg">
-                <h4 className="text-xl font-semibold text-blue-800 mb-3">Prediction Result</h4>
-                <div className="text-4xl font-bold text-blue-700">{predictedRentals} <span className="text-xl">rentals</span></div>
-                <p className="mt-2 text-blue-600">Based on current weather conditions</p>
-                
-                {predictedMaintenance && (
-                  <div className="mt-4 grid grid-cols-2 gap-4">
-                    <div className="bg-white p-3 rounded-md shadow-sm">
-                      <h5 className="font-semibold text-gray-700">Daily Inspections</h5>
-                      <p className="text-2xl font-bold">{predictedMaintenance.dailyInspections}</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-md shadow-sm">
-                      <h5 className="font-semibold text-gray-700">Expected Repairs</h5>
-                      <p className="text-2xl font-bold">{predictedMaintenance.repairs}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
+                  <Tab label="Prediction Result" />
+                  <Tab label="Maintenance Metrics" />
+                  <Tab label="Usage Trends" />
+                  <Tab label="Station Distribution" />
+                </Tabs>
+              </Paper>
               
-              <div>
-                <h4 className="text-lg font-semibold text-gray-700 mb-3">Prediction Factor Analysis</h4>
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <div className="flex justify-between items-center mb-2">
-                    <span>Temperature Impact</span>
-                    <span className={temperature > 15 && temperature < 30 ? "text-green-600 font-bold" : "text-yellow-600 font-bold"}>
-                      {temperature > 15 && temperature < 30 ? "Ideal for Cycling" : "Reduces Cycling Intent"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span>Precipitation Impact</span>
-                    <span className={precipitation > 0 ? "text-red-600 font-bold" : "text-green-600 font-bold"}>
-                      {precipitation > 0 ? `Reduces by ~${Math.round(precipitation * 3)}%` : "No Negative Impact"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span>Time Impact</span>
-                    <span className={(dayOfWeek === 0 || dayOfWeek === 6) ? "text-green-600 font-bold" : "text-blue-600 font-bold"}>
-                      {(dayOfWeek === 0 || dayOfWeek === 6) ? "Weekend +15%" : "Standard Weekday"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span>Holiday Impact</span>
-                    <span className={isHoliday ? "text-green-600 font-bold" : "text-gray-600"}>
-                      {isHoliday ? "Increases by ~25%" : "No Additional Impact"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {predictionError && (
-            <div className="bg-red-50 p-4 rounded-lg text-red-700">
-              <p className="font-semibold">{predictionError}</p>
-            </div>
-          )}
-          
-          {futurePredictions.length > 0 && (
-            <div className="mt-6">
-              <h4 className="text-lg font-semibold text-gray-700 mb-3">7-Day Forecast</h4>
-              <div style={chartContainerStyle}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart 
-                    data={futurePredictions}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" tickFormatter={(value, index) => `${value} ${futurePredictions[index].day}`} />
-                    <YAxis />
-                    <Tooltip content={({ active, payload, label }) => {
-                      if (active && payload && payload.length) {
-                        const data = payload[0].payload;
-                        return (
-                          <div className="bg-white p-3 border rounded shadow-sm">
-                            <p className="font-semibold">{data.date} {data.day}</p>
-                            <p>Predicted Rentals: <span className="font-bold">{data.prediction}</span></p>
-                            <p>Temperature: {data.temperature}°C</p>
-                            <p>Precipitation: {data.precipitation}mm</p>
-                          </div>
-                        );
-                      }
-                      return null;
-                    }} />
-                    <Legend wrapperStyle={{ marginTop: "10px" }} />
-                    <Line type="monotone" dataKey="prediction" name="Predicted Rentals" stroke="#8884d8" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-                {futurePredictions.length === 0 && <p>No data available.</p>}
-              </div>
-            </div>
-          )}
-        </div>
-        
-        <div className="bg-white p-4 md:p-6 rounded-lg shadow mb-6">
-          <h3 className="text-xl font-semibold text-gray-700 mb-4">Maintenance Workload Calculator</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-6">
-            <div className="form-group">
-              <label className="block text-gray-700 mb-2">Total Bike Count</label>
-              <input
-                type="range"
-                min="100"
-                max="2000"
-                value={bikeCount}
-                onChange={(e) => setBikeCount(parseInt(e.target.value))}
-                className="w-full"
-              />
-              <div className="flex justify-between">
-                <span>100</span>
-                <span className="font-semibold">{bikeCount}</span>
-                <span>2000</span>
-              </div>
-            </div>
-            
-            <div className="form-group">
-              <label className="block text-gray-700 mb-2">Usage Intensity (%)</label>
-              <input
-                type="range"
-                min="10"
-                max="100"
-                value={usageIntensity}
-                onChange={(e) => setUsageIntensity(parseInt(e.target.value))}
-                className="w-full"
-              />
-              <div className="flex justify-between">
-                <span>Low (10%)</span>
-                <span className="font-semibold">{usageIntensity}%</span>
-                <span>High (100%)</span>
-              </div>
-            </div>
-            
-            <div className="form-group">
-              <label className="block text-gray-700 mb-2">Weather Factor</label>
-              <input
-                type="range"
-                min="10"
-                max="100"
-                value={weatherFactor}
-                onChange={(e) => setWeatherFactor(parseInt(e.target.value))}
-                className="w-full"
-              />
-              <div className="flex justify-between">
-                <span>Good (10)</span>
-                <span className="font-semibold">{weatherFactor}</span>
-                <span>Severe (100)</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-blue-700">Daily Inspections</h4>
-              <p className="text-2xl font-bold">{maintenanceLoad.dailyInspections}</p>
-            </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-green-700">Weekly Maintenance</h4>
-              <p className="text-2xl font-bold">{maintenanceLoad.weeklyMaintenance}</p>
-            </div>
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-yellow-700">Monthly Overhauls</h4>
-              <p className="text-2xl font-bold">{maintenanceLoad.monthlyOverhaul}</p>
-            </div>
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <h4 className="font-semibold text-purple-700">Recommended Staff</h4>
-              <p className="text-2xl font-bold">{maintenanceLoad.staffNeeded}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <footer className="bg-gray-800 text-white p-4 text-center">
-        Bike Rental Prediction Management System 2025
-      </footer>
-    </div>
+              {/* Tab Content Area - Scrollable */}
+              <Box sx={{ overflowY: 'auto', height: '100%', pl: 1 }}>
+                {/* Prediction Result Tab */}
+                {activeTab === 0 && (
+                  <Grid container spacing={2} sx={{ maxWidth: '100%', mx: 'auto', overflowX: 'auto' }}>
+                    <Grid item xs={12}>
+                      <StyledCard sx={{ minWidth: '1200px', width: '100%' }}>
+                        <CardContent sx={{ px: { xs: 4, md: 6 } }}>
+                          <Typography variant="h6" fontWeight={600} gutterBottom>Prediction Result</Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', py: 3, width: '100%', mx: 'auto' }}>
+                            <Typography variant="h3" color="primary.main" fontWeight={700} sx={{ mb: 1 }}>
+                              {predictedRentals !== null ? predictedRentals : '--'}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">Predicted Rentals</Typography>
+                          </Box>
+                          {futurePredictions.length > 0 && (
+                            <Paper elevation={2} sx={{ p: 3, mt: 3, width: '100%', boxSizing: 'border-box' }}>
+                              <Typography variant="subtitle1" fontWeight={500} gutterBottom>Next 7 Days Forecast</Typography>
+                              <Box sx={{ height: 350 }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                  <AreaChart data={futurePredictions}>
+                                    <defs>
+                                      <linearGradient id="colorPrediction" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#1976d2" stopOpacity={0.8}/>
+                                        <stop offset="95%" stopColor="#1976d2" stopOpacity={0.1}/>
+                                      </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="day" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    <Area type="monotone" dataKey="prediction" stroke="#1976d2" fillOpacity={1} fill="url(#colorPrediction)" />
+                                  </AreaChart>
+                                </ResponsiveContainer>
+                              </Box>
+                            </Paper>
+                          )}
+                          {/* Add radar chart for weather impact analysis */}
+                          <Paper elevation={2} sx={{ p: 3, mt: 4, width: '100%', boxSizing: 'border-box' }}>
+                            <Typography variant="subtitle1" fontWeight={500} gutterBottom>Weather Impact Analysis</Typography>
+                            <Box sx={{ height: 350 }}>
+                              <ResponsiveContainer width="100%" height="100%">
+                                <RadarChart outerRadius={90} data={[
+                                  { factor: 'Temperature', value: temperature / 40 * 100 },
+                                  { factor: 'Humidity', value: humidity },
+                                  { factor: 'Wind Speed', value: windSpeed * 2 },
+                                  { factor: 'Precipitation', value: precipitation * 2 },
+                                  { factor: 'Season Impact', value: season * 25 }
+                                ]}>
+                                  <PolarGrid />
+                                  <PolarAngleAxis dataKey="factor" />
+                                  <PolarRadiusAxis angle={30} domain={[0, 100]} />
+                                  <Radar name="Weather Factors" dataKey="value" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
+                                </RadarChart>
+                              </ResponsiveContainer>
+                            </Box>
+                          </Paper>
+                        </CardContent>
+                      </StyledCard>
+                    </Grid>
+                  </Grid>
+                )}
+                
+                {/* Maintenance Metrics Tab */}
+                {activeTab === 1 && (
+                  <Grid container spacing={2} sx={{ maxWidth: '100%', mx: 'auto', overflowX: 'auto' }}>
+                    <Grid item xs={12}>
+                      <StyledCard sx={{ minWidth: '1200px', width: '100%' }}>
+                        <CardContent sx={{ px: { xs: 4, md: 6 } }}>
+                          <Typography variant="h6" fontWeight={600} gutterBottom>Maintenance Metrics</Typography>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'center', my: 2 }}>
+                            <Paper elevation={3} sx={{ p: 3, minWidth: 180, textAlign: 'center', bgcolor: '#e3f2fd', boxSizing: 'border-box' }}>
+                              <Typography variant="h3" fontWeight={700} color="primary.main">{maintenance.dailyInspections}</Typography>
+                              <Typography variant="subtitle1" color="text.secondary">Daily Inspections</Typography>
+                            </Paper>
+                            <Paper elevation={3} sx={{ p: 3, minWidth: 180, textAlign: 'center', bgcolor: '#e8f5e9', boxSizing: 'border-box' }}>
+                              <Typography variant="h3" fontWeight={700} color="#2e7d32">{maintenance.weeklyMaintenance}</Typography>
+                              <Typography variant="subtitle1" color="text.secondary">Weekly Maintenance</Typography>
+                            </Paper>
+                            <Paper elevation={3} sx={{ p: 3, minWidth: 180, textAlign: 'center', bgcolor: '#fff8e1', boxSizing: 'border-box' }}>
+                              <Typography variant="h3" fontWeight={700} color="#ed6c02">{maintenance.monthlyOverhaul}</Typography>
+                              <Typography variant="subtitle1" color="text.secondary">Monthly Overhaul</Typography>
+                            </Paper>
+                            <Paper elevation={3} sx={{ p: 3, minWidth: 180, textAlign: 'center', bgcolor: '#fce4ec', boxSizing: 'border-box' }}>
+                              <Typography variant="h3" fontWeight={700} color="#d81b60">{maintenance.staffNeeded}</Typography>
+                              <Typography variant="subtitle1" color="text.secondary">Staff Needed</Typography>
+                            </Paper>
+                          </Box>
+                          <Box sx={{ mt: 4 }}>
+                            <Typography variant="subtitle1" fontWeight={500} gutterBottom>Maintenance Resource Allocation</Typography>
+                            <ResponsiveContainer width="100%" height={300}>
+                              <PieChart>
+                                <Pie
+                                  data={[
+                                    { name: 'Daily Inspections', value: maintenance.dailyInspections },
+                                    { name: 'Weekly Maintenance', value: maintenance.weeklyMaintenance },
+                                    { name: 'Monthly Overhaul', value: maintenance.monthlyOverhaul },
+                                  ]}
+                                  cx="50%"
+                                  cy="50%"
+                                  labelLine={true}
+                                  outerRadius={110}
+                                  fill="#8884d8"
+                                  dataKey="value"
+                                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                >
+                                  <Cell fill="#2196f3" />
+                                  <Cell fill="#4caf50" />
+                                  <Cell fill="#ff9800" />
+                                </Pie>
+                                <Tooltip formatter={(value) => [`${value} tasks`, 'Quantity']} />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </Box>
+                          
+                          {/* Worker and Vehicle Visualization */}
+                          <Box sx={{ mt: 4 }}>
+                            <Typography variant="subtitle1" fontWeight={500} gutterBottom>Workforce & Truck Visualization</Typography>
+                            <Paper elevation={3} sx={{ p: 3, bgcolor: '#f5f5f5', boxSizing: 'border-box' }}>
+                              <Box sx={{ mb: 3 }}>
+                                <Typography variant="body1" fontWeight={500} gutterBottom>
+                                  Workers (👷 = 10 workers, max 1000)
+                                </Typography>
+                                <Box sx={{ bgcolor: 'white', p: 2, borderRadius: 1, wordBreak: 'break-all', lineHeight: 1.5 }}>
+                                  {maintenance.staffNeeded <= 1000 
+                                    ? '👷'.repeat(Math.ceil(maintenance.staffNeeded / 10))
+                                    : '👷'.repeat(100) + ` (Max display: 1000 workers, actual: ${maintenance.staffNeeded})`}
+                                </Box>
+                                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                  Total workers: {maintenance.staffNeeded}
+                                </Typography>
+                              </Box>
+                              
+                              <Box>
+                                <Typography variant="body1" fontWeight={500} gutterBottom>
+                                  Trucks (🚚 = 10 trucks, max 200)
+                                </Typography>
+                                {/* Calculate trucks: 1 truck per 5 workers */}
+                                {(() => {
+                                  const totalTrucks = Math.ceil(maintenance.staffNeeded / 5);
+                                  return (
+                                    <>
+                                      <Box sx={{ bgcolor: 'white', p: 2, borderRadius: 1, wordBreak: 'break-all', lineHeight: 1.5 }}>
+                                        {totalTrucks <= 200 
+                                          ? '🚚'.repeat(Math.ceil(totalTrucks / 10))
+                                          : '🚚'.repeat(20) + ` (Max display: 200 trucks, actual: ${totalTrucks})`}
+                                      </Box>
+                                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                        Total trucks: {totalTrucks} (1 truck per 5 workers)
+                                      </Typography>
+                                    </>
+                                  );
+                                })()}
+                              </Box>
+                            </Paper>
+                          </Box>
+                        </CardContent>
+                      </StyledCard>
+                    </Grid>
+                  </Grid>
+                )}
+                
+                {/* Usage Trends Tab */}
+                {activeTab === 2 && (
+                  <Grid container spacing={2} sx={{ maxWidth: '100%', mx: 'auto', overflowX: 'auto' }}>
+                    <Grid item xs={12}>
+                      <StyledCard sx={{ minWidth: '1200px', width: '100%' }}>
+                        <CardContent sx={{ px: { xs: 4, md: 6 } }}>
+                          <Typography variant="h6" fontWeight={600} gutterBottom>Usage Trends</Typography>
+                          <Paper elevation={2} sx={{ p: 4, width: '100%', mb: 4, boxSizing: 'border-box' }}>
+                            <Typography variant="subtitle1" fontWeight={500} gutterBottom>Usage Statistics</Typography>
+                            <Box sx={{ height: 500 }}>
+                              <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={usageData} margin={{ left: 10, right: 30 }}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="month" />
+                                  <YAxis />
+                                  <Tooltip cursor={{ fill: 'rgba(0, 0, 0, 0.05)' }} />
+                                  <Legend layout="horizontal" verticalAlign="top" align="center" />
+                                  <Bar dataKey="rentals" fill="#1976d2" name="Rentals" radius={[4, 4, 0, 0]} />
+                                  <Bar dataKey="repairs" fill="#f44336" name="Repairs" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                              </ResponsiveContainer>
+                            </Box>
+                          </Paper>
+                          
+                          <Paper elevation={2} sx={{ p: 4, width: '100%', boxSizing: 'border-box' }}>
+                            <Typography variant="subtitle1" fontWeight={500} gutterBottom>Monthly Trend Analysis</Typography>
+                            <Box sx={{ height: 450 }}>
+                              <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={usageData} margin={{ left: 10, right: 30 }}>
+                                  <CartesianGrid strokeDasharray="3 3" />
+                                  <XAxis dataKey="month" />
+                                  <YAxis yAxisId="left" orientation="left" stroke="#1976d2" />
+                                  <YAxis yAxisId="right" orientation="right" stroke="#f44336" />
+                                  <Tooltip />
+                                  <Legend />
+                                  <Line yAxisId="left" type="monotone" dataKey="rentals" stroke="#1976d2" activeDot={{ r: 8 }} strokeWidth={2} name="Rentals" />
+                                  <Line yAxisId="right" type="monotone" dataKey="repairs" stroke="#f44336" strokeWidth={2} name="Repairs" />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </Box>
+                          </Paper>
+                        </CardContent>
+                      </StyledCard>
+                    </Grid>
+                  </Grid>
+                )}
+                
+                {/* Station Distribution Tab */}
+                {activeTab === 3 && (
+                  <Grid container spacing={2} sx={{ mx: 'auto' }}>
+                    {/* Small Left Card */}
+                    <Grid item xs={12} md={3}>
+                      <StyledCard>
+                        <CardContent>
+                          <Typography variant="subtitle1" fontWeight={500} gutterBottom align="center">Station Status</Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+                            {stationData.map((station, index) => (
+                              <Paper 
+                                key={index} 
+                                elevation={1} 
+                                sx={{ 
+                                  p: 2, 
+                                  bgcolor: COLORS[index % COLORS.length] + '20',
+                                  borderLeft: `4px solid ${COLORS[index % COLORS.length]}` 
+                                }}
+                              >
+                                <Typography variant="body1" fontWeight={500}>{station.name}</Typography>
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+                                  <Typography variant="h6" fontWeight={700}>{station.value}</Typography>
+                                  <Typography variant="body2" color="text.secondary">bikes</Typography>
+                                </Box>
+                              </Paper>
+                            ))}
+                          </Box>
+                        </CardContent>
+                      </StyledCard>
+                    </Grid>
+
+                    {/* Main Center Card */}
+                    <Grid item xs={12} md={6}>
+                      <StyledCard>
+                        <CardContent>
+                          <Typography variant="subtitle1" fontWeight={500} gutterBottom align="center">Station Analysis</Typography>
+                          <Grid container spacing={2}>
+                            <Grid item xs={12}>
+                              <Paper elevation={2} sx={{ p: 3 }}>
+                                <Typography variant="subtitle2" fontWeight={500} gutterBottom align="center">Bike Distribution by Station</Typography>
+                                <Box sx={{ 
+                                  display: 'flex', 
+                                  flexDirection: 'column', 
+                                  width: '100%',
+                                  mt: 2
+                                }}>
+                                  {/* Table header */}
+                                  <Box sx={{ 
+                                    display: 'flex', 
+                                    borderBottom: '2px solid #e0e0e0', 
+                                    pb: 1, 
+                                    mb: 1,
+                                    fontWeight: 600
+                                  }}>
+                                    <Box sx={{ width: '30%' }}>Station</Box>
+                                    <Box sx={{ width: '50%' }}>Bikes Available</Box>
+                                    <Box sx={{ width: '20%', textAlign: 'right' }}>Count</Box>
+                                  </Box>
+                                  
+                                  {/* Table rows */}
+                                  {stationData.map((station, index) => (
+                                    <Box 
+                                      key={index} 
+                                      sx={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center',
+                                        py: 1.5,
+                                        borderBottom: '1px solid #f0f0f0'
+                                      }}
+                                    >
+                                      <Box sx={{ width: '30%', fontWeight: 500 }}>
+                                        <Box sx={{ 
+                                          display: 'flex', 
+                                          alignItems: 'center',
+                                          gap: 1 
+                                        }}>
+                                          <Box 
+                                            sx={{ 
+                                              width: 12, 
+                                              height: 12, 
+                                              borderRadius: '50%', 
+                                              bgcolor: COLORS[index % COLORS.length] 
+                                            }} 
+                                          />
+                                          {station.name}
+                                        </Box>
+                                      </Box>
+                                      <Box sx={{ width: '50%' }}>
+                                        <Box sx={{ 
+                                          bgcolor: '#f5f5f5', 
+                                          height: 12, 
+                                          borderRadius: 1,
+                                          position: 'relative',
+                                          overflow: 'hidden'
+                                        }}>
+                                          <Box sx={{ 
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            height: '100%',
+                                            width: `${(station.value / Math.max(...stationData.map(s => s.value))) * 100}%`,
+                                            bgcolor: COLORS[index % COLORS.length],
+                                            borderRadius: 1
+                                          }} />
+                                        </Box>
+                                      </Box>
+                                      <Box sx={{ width: '20%', textAlign: 'right', fontWeight: 600 }}>
+                                        {station.value}
+                                      </Box>
+                                    </Box>
+                                  ))}
+                                </Box>
+                              </Paper>
+                            </Grid>
+                            <Grid item xs={12}>
+                              <Paper elevation={2} sx={{ p: 3, mt: 1 }}>
+                                <Typography variant="subtitle2" fontWeight={500} gutterBottom align="center">Percentage Distribution</Typography>
+                                <Box sx={{ display: 'flex', height: 280 }}>
+                                  <Box sx={{ width: '60%', height: '100%' }}>
+                                    {/* Static chart rather than responsive container */}
+                                    <PieChart width={400} height={280}>
+                                      <Pie
+                                        data={stationData}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        outerRadius={100}
+                                        fill="#8884d8"
+                                        dataKey="value"
+                                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                                      >
+                                        {stationData.map((entry, index) => (
+                                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                      </Pie>
+                                      <Tooltip formatter={(value) => [`${value} bikes`, 'Quantity']} />
+                                    </PieChart>
+                                  </Box>
+                                  <Box sx={{ width: '40%' }}>
+                                    <Box sx={{ 
+                                      display: 'flex', 
+                                      flexDirection: 'column', 
+                                      gap: 2,
+                                      height: '100%',
+                                      justifyContent: 'center' 
+                                    }}>
+                                      {stationData.map((station, index) => {
+                                        const percentage = (station.value / stationData.reduce((sum, s) => sum + s.value, 0) * 100).toFixed(1);
+                                        return (
+                                          <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                            <Box 
+                                              sx={{ 
+                                                width: 16, 
+                                                height: 16, 
+                                                bgcolor: COLORS[index % COLORS.length],
+                                                borderRadius: '4px'
+                                              }} 
+                                            />
+                                            <Box sx={{ flex: 1 }}>
+                                              <Typography variant="body2" fontWeight={500}>{station.name}</Typography>
+                                              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <Typography variant="caption" color="text.secondary">{station.value} bikes</Typography>
+                                                <Typography variant="caption" fontWeight={600}>{percentage}%</Typography>
+                                              </Box>
+                                            </Box>
+                                          </Box>
+                                        );
+                                      })}
+                                    </Box>
+                                  </Box>
+                                </Box>
+                              </Paper>
+                            </Grid>
+                          </Grid>
+                        </CardContent>
+                      </StyledCard>
+                    </Grid>
+
+                    {/* Small Right Card */}
+                    <Grid item xs={12} md={3}>
+                      <StyledCard>
+                        <CardContent>
+                          <Typography variant="subtitle1" fontWeight={500} gutterBottom align="center">Capacity Utilization</Typography>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
+                            {stationData.map((station, index) => {
+                              // Calculate a random utilization percentage between 50% and 95%
+                              const utilization = Math.floor(50 + Math.random() * 45);
+                              return (
+                                <Box key={index} sx={{ width: '100%' }}>
+                                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <Typography variant="body2">{station.name}</Typography>
+                                    <Typography variant="body2" fontWeight={500}>{utilization}%</Typography>
+                                  </Box>
+                                  <Box sx={{ 
+                                    width: '100%', 
+                                    height: 8, 
+                                    bgcolor: '#e0e0e0', 
+                                    borderRadius: 1,
+                                    mt: 0.5,
+                                    position: 'relative'
+                                  }}>
+                                    <Box sx={{ 
+                                      position: 'absolute',
+                                      top: 0,
+                                      left: 0,
+                                      height: '100%',
+                                      width: `${utilization}%`,
+                                      bgcolor: COLORS[index % COLORS.length],
+                                      borderRadius: 1
+                                    }} />
+                                  </Box>
+                                </Box>
+                              );
+                            })}
+                          </Box>
+                        </CardContent>
+                      </StyledCard>
+                    </Grid>
+                  </Grid>
+                )}
+              </Box>
+            </Box>
+          </Grid>
+        </Grid>
+      </Box>
+    </Box>
   );
 };
 
