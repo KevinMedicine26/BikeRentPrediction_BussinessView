@@ -10,7 +10,7 @@ import pickle
 df = pd.read_csv('data/SeoulBikeData.csv', encoding='cp1252')
 
 # 2. Perform the same preprocessing as in your notebook
-df['Date'] = pd.to_datetime(df['Date'])
+df['Date'] = pd.to_datetime(df['Date'], dayfirst=True)
 df['Year'] = df['Date'].dt.year
 df['Month'] = df['Date'].dt.month
 df['Day'] = df['Date'].dt.day
