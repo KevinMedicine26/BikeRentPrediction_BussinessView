@@ -1,0 +1,162 @@
+# User Guide for Bike Rental Prediction System
+
+## Environment Setup
+
+### Backend API Setup
+1. Open Command Prompt or PowerShell and navigate to the project root directory
+2. Activate the virtual environment:
+   ```
+   .\venv\Scripts\activate
+   ```
+3. Install the required Python packages:
+   ```
+   pip install flask flask-cors pandas numpy scikit-learn
+   ```
+
+### Frontend Setup
+1. Navigate to the frontend directory:
+   ```
+   cd frontend
+   ```
+2. Install frontend dependencies:
+   ```
+   npm install
+   ```
+
+## Running the Demo Application
+
+### Start Backend Service
+1. Make sure your virtual environment is activated (the terminal prompt should show "(venv)")
+
+cd api
+2. Run the following command in the project root directory:
+   ```
+   python api/app.py
+   ```
+3. The backend API will run at http://127.0.0.1:5000
+
+
+start a new terminal
+
+### Start Frontend Application
+1. In a new Command Prompt or PowerShell window
+2. Navigate to the frontend directory:
+   ```
+   cd frontend
+   ```
+3. Start the frontend development server:
+   ```
+   npm start
+   ```
+4. The frontend app will run at http://127.0.0.1:3000 and should automatically open in your browser
+
+## Using the Application
+
+1. Visit http://127.0.0.1:3000 in your browser
+2. The app allows you to:
+   - View bike rental predictions
+   - Adjust various parameters (such as weather conditions, temperature, etc.) to see predictions under different scenarios
+   - Access historical data and other features
+
+## Stopping the Application
+
+To stop the application, press Ctrl+C in each terminal window
+
+## Notes
+
+- The current demo uses a mock model, as the actual model file was not found
+- Make sure to start the backend API before running the frontend
+
+
+## Frontend Testing Methods
+
+### Unit Testing
+1. Navigate to the frontend directory:
+   ```
+   cd frontend
+   ```
+2. Run unit tests:
+   ```
+   npm test
+   ```
+   This command will start the test runner and execute all test files.
+
+3. View test coverage report:
+   ```
+   npm test -- --coverage
+   ```
+   This will generate a detailed coverage report showing which parts of the code are tested.
+
+### Component Testing
+1. Create test files for components, named as `ComponentName.test.js` (e.g., `BikeRentalDashboard.test.js`)
+2. Example component test:
+   ```javascript
+   import { render, screen } from '@testing-library/react';
+   import BikeRentalDashboard from './components/BikeRentalDashboard';
+
+   test('renders Bike Rental Dashboard', () => {
+     render(<BikeRentalDashboard />);
+     const titleElement = screen.getByText(/Bike Rental Dashboard/i);
+     expect(titleElement).toBeInTheDocument();
+   });
+   ```
+
+### End-to-End Testing
+1. Install Cypress testing tool:
+   ```
+   npm install --save-dev cypress
+   ```
+
+2. Add the following scripts to the `scripts` section of your `package.json` file:
+   ```json
+   "cypress:open": "cypress open",
+   "cypress:run": "cypress run"
+   ```
+
+3. Run Cypress tests:
+   ```
+   npm run cypress:open
+   ```
+   This will open the Cypress test runner UI, where you can select tests to run.
+
+4. Example Cypress test (`cypress/integration/dashboard.spec.js`):
+   ```javascript
+   describe('Dashboard Tests', () => {
+     it('Visits the dashboard page', () => {
+       cy.visit('http://localhost:3000');
+       cy.contains('Bike Rental Dashboard').should('be.visible');
+     });
+
+     it('Tests prediction button', () => {
+       cy.visit('http://localhost:3000');
+       cy.contains('Predict Rentals').click();
+       cy.get('[data-testid="prediction-result"]').should('be.visible');
+     });
+   });
+   ```
+
+### Performance Testing
+1. Use Chrome DevTools for performance testing:
+   - Open the app and press F12 to open DevTools
+   - Switch to the "Performance" tab
+   - Click the record button, interact with the app, then stop recording
+   - Analyze render time, JS execution time, and other performance metrics
+
+2. Use Lighthouse for performance audits:
+   - In Chrome DevTools, switch to the "Lighthouse" tab
+   - Click "Generate report" to create a performance report
+   - Review performance, accessibility, best practices, and SEO scores
+
+### Debugging Tips
+1. Use React Developer Tools extension for Chrome or Firefox:
+   - Inspect component hierarchy, state, and props
+
+2. Use console logs:
+   - Add `console.log()` statements at key locations to trace component lifecycle and data flow
+   - Use `console.table()` to display complex data structures
+
+3. Use breakpoints for debugging:
+   - Set breakpoints in DevTools
+   - Use the `debugger;` statement in your code to trigger a breakpoint
+
+When testing the frontend application, it is recommended to create a dedicated test environment. You can set the environment variable `REACT_APP_API_URL` to point to a mock backend service instead of the real API. This ensures stable and isolated testing.
