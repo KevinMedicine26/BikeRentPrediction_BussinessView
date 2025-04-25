@@ -1,9 +1,13 @@
+
+
+
 # 自行车租赁预测系统使用说明
 
 ## 环境配置
 
 ### 后端 API 设置
 1. 打开命令提示符或 PowerShell，并导航到项目根目录
+cd BikeRentPrediction
 2. 激活虚拟环境：
    ```
    .\venv\Scripts\activate
@@ -25,6 +29,9 @@
 
 ## 运行演示应用
 
+cd BikeRentPrediction
+
+.\venv\Scripts\activate
 ### 启动后端服务
 1. 确保您已激活虚拟环境（终端提示符前应显示 "(venv)"）
 2. 在项目根目录下运行：
